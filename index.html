@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zoru.cc — Direct. Private. Temporary.</title>
+    <meta name="description"
+        content="Zero-infrastructure 1-on-1 video calls. No accounts. No data stored. Just connect.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-elevated: #1a1a1d;
+            --text-primary: #fafafa;
+            --text-secondary: #888;
+            --text-muted: #555;
+            --accent: #7c3aed;
+            --accent-glow: rgba(124, 58, 237, 0.3);
+            --border: #222;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Header */
+        .header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--warning);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+            animation: none;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* Video Grid */
+        .video-grid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .video-grid.has-peer {
+            flex-direction: row;
+        }
+
+        @media (max-width: 768px) {
+            .video-grid.has-peer {
+                flex-direction: column;
+            }
+        }
+
+        .video-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-container.local {
+            border: 1px solid var(--border);
+        }
+
+        .video-container.local.minimized {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 180px;
+            height: 120px;
+            border-radius: 12px;
+            z-index: 50;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--border);
+        }
+
+        .video-label {
+            position: absolute;
+            bottom: 0.75rem;
+            left: 0.75rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        /* Waiting State */
+        .waiting-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.8));
+            z-index: 20;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .waiting-overlay.hidden {
+            display: none;
+        }
+
+        .tagline {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            letter-spacing: 0.1em;
+        }
+
+        .share-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .link-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            font-size: 0.875rem;
+        }
+
+        .link-display code {
+            flex: 1;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .share-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 24px var(--accent-glow);
+        }
+
+        .share-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px var(--accent-glow);
+        }
+
+        .share-btn:active {
+            transform: translateY(0);
+        }
+
+        .share-btn.copied {
+            background: var(--success);
+            box-shadow: 0 4px 24px rgba(16, 185, 129, 0.3);
+        }
+
+        .instructions {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+            line-height: 1.6;
+        }
+
+        /* Permissions Error */
+        .error-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-primary);
+            z-index: 1000;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .error-overlay.hidden {
+            display: none;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-title {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+        }
+
+        .error-message {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            max-width: 360px;
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 0.75rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .connection-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .room-id {
+            font-family: inherit;
+            letter-spacing: 0.05em;
+        }
+
+        /* Fade-in animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* End Call Button */
+        .end-call-btn {
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 50px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 24px rgba(220, 38, 38, 0.4);
+        }
+
+        .end-call-btn:hover {
+            background: #b91c1c;
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.5);
+        }
+
+        .end-call-btn:active {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .end-call-btn.visible {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">zoru<span>.cc</span></div>
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">initializing...</span>
+            </div>
+        </header>
+
+        <main class="video-grid" id="videoGrid">
+            <div class="video-container local" id="localContainer">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <span class="video-label">you</span>
+            </div>
+
+            <div class="video-container remote hidden" id="remoteContainer">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <span class="video-label">peer</span>
+            </div>
+
+            <div class="waiting-overlay" id="waitingOverlay">
+                <p class="tagline">DIRECT. PRIVATE. TEMPORARY.</p>
+                <div class="share-section fade-in">
+                    <div class="link-display">
+                        <code id="shareLink"></code>
+                    </div>
+                    <button class="share-btn" id="shareBtn">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                        </svg>
+                        <span>Copy Link</span>
+                    </button>
+                    <p class="instructions">
+                        Share this link with someone to start a private video call.<br>
+                        No accounts. No data stored.
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="connection-info">
+                <span class="room-id">room: <span id="roomIdDisplay">—</span></span>
+            </div>
+            <span>p2p encrypted</span>
+        </footer>
+    </div>
+
+    <div class="error-overlay hidden" id="errorOverlay">
+        <div class="error-icon">📷</div>
+        <h2 class="error-title">Camera access required</h2>
+        <p class="error-message">
+            zoru.cc needs access to your camera and microphone.
+            Please allow permissions and refresh the page.
+        </p>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <button class="end-call-btn" id="endCallBtn">End Call</button>
+
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <script>
+        // ============================================
+        // ZORU.CC - Zero Infrastructure Video Chat
+        // ============================================
+
+        const CONFIG = {
+            ROOM_ID_LENGTH: 6,
+            INACTIVITY_TIMEOUT: 120000, // 2 minutes
+            VIDEO_CONSTRAINTS: {
+                video: {
+                    width: { ideal: 1280, max: 1280 },
+                    height: { ideal: 720, max: 720 },
+                    facingMode: 'user'
+                },
+                audio: true
+            },
+            ICE_SERVERS: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        };
+
+        // DOM Elements
+        const elements = {
+            localVideo: document.getElementById('localVideo'),
+            remoteVideo: document.getElementById('remoteVideo'),
+            localContainer: document.getElementById('localContainer'),
+            remoteContainer: document.getElementById('remoteContainer'),
+            videoGrid: document.getElementById('videoGrid'),
+            waitingOverlay: document.getElementById('waitingOverlay'),
+            errorOverlay: document.getElementById('errorOverlay'),
+            shareLink: document.getElementById('shareLink'),
+            shareBtn: document.getElementById('shareBtn'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            roomIdDisplay: document.getElementById('roomIdDisplay'),
+            toast: document.getElementById('toast'),
+            endCallBtn: document.getElementById('endCallBtn')
+        };
+
+        // State
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
+        let inactivityTimer = null;
+        let isHost = false;
+
+        // ============================================
+        // UTILITIES
+        // ============================================
+
+        function generateRoomId(length = CONFIG.ROOM_ID_LENGTH) {
+            const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function getRoomIdFromUrl() {
+            return window.location.hash.slice(1) || null;
+        }
+
+        function setRoomIdInUrl(roomId) {
+            window.history.replaceState(null, '', `#${roomId}`);
+        }
+
+        function showToast(message, duration = 2000) {
+            elements.toast.textContent = message;
+            elements.toast.classList.add('show');
+            setTimeout(() => {
+                elements.toast.classList.remove('show');
+            }, duration);
+        }
+
+        function updateStatus(text, connected = false) {
+            elements.statusText.textContent = text;
+            elements.statusDot.classList.toggle('connected', connected);
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                return navigator.clipboard.writeText(text);
+            }
+            // Fallback
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            return Promise.resolve();
+        }
+
+        // ============================================
+        // MEDIA HANDLING
+        // ============================================
+
+        async function requestMediaAccess() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(CONFIG.VIDEO_CONSTRAINTS);
+                elements.localVideo.srcObject = localStream;
+                return true;
+            } catch (err) {
+                console.error('Media access denied:', err);
+                elements.errorOverlay.classList.remove('hidden');
+                return false;
+            }
+        }
+
+        // ============================================
+        // PEER CONNECTION
+        // ============================================
+
+        function initializePeer(roomId) {
+            peer = new Peer(roomId, {
+                config: { iceServers: CONFIG.ICE_SERVERS }
+            });
+
+            peer.on('open', (id) => {
+                console.log('Peer connected with ID:', id);
+                elements.roomIdDisplay.textContent = id;
+
+                const shareUrl = `${window.location.origin}${window.location.pathname}#${id}`;
+                elements.shareLink.textContent = shareUrl;
+
+                if (isHost) {
+                    updateStatus('waiting for peer...', false);
+                }
+            });
+
+            peer.on('call', (call) => {
+                console.log('Incoming call');
+                currentCall = call;
+                call.answer(localStream);
+                handleCall(call);
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                if (err.type === 'unavailable-id') {
+                    // Room ID taken, try connecting as joiner
+                    connectToPeer(roomId);
+                } else if (err.type === 'peer-unavailable') {
+                    updateStatus('peer not found', false);
+                    showToast('Could not connect to peer');
+                }
+            });
+
+            peer.on('disconnected', () => {
+                updateStatus('disconnected', false);
+            });
+        }
+
+        function connectToPeer(peerId) {
+            if (!peer || !localStream) return;
+
+            updateStatus('connecting...', false);
+
+            const call = peer.call(peerId, localStream);
+            if (call) {
+                currentCall = call;
+                handleCall(call);
+            }
+        }
+
+        function handleCall(call) {
+            call.on('stream', (remoteStream) => {
+                console.log('Received remote stream');
+                elements.remoteVideo.srcObject = remoteStream;
+                onPeerConnected();
+            });
+
+            call.on('close', () => {
+                console.log('Call closed');
+                onPeerDisconnected();
+            });
+
+            call.on('error', (err) => {
+                console.error('Call error:', err);
+                onPeerDisconnected();
+            });
+        }
+
+        function onPeerConnected() {
+            updateStatus('connected', true);
+            elements.waitingOverlay.classList.add('hidden');
+            elements.remoteContainer.classList.remove('hidden');
+            elements.videoGrid.classList.add('has-peer');
+            elements.localContainer.classList.add('minimized');
+            elements.endCallBtn.classList.add('visible');
+            resetInactivityTimer();
+        }
+
+        function onPeerDisconnected() {
+            updateStatus('peer disconnected', false);
+            elements.remoteContainer.classList.add('hidden');
+            elements.videoGrid.classList.remove('has-peer');
+            elements.localContainer.classList.remove('minimized');
+            elements.waitingOverlay.classList.remove('hidden');
+            elements.endCallBtn.classList.remove('visible');
+            showToast('Peer disconnected');
+        }
+
+        function endCall() {
+            if (currentCall) {
+                currentCall.close();
+                currentCall = null;
+            }
+
+            // Destroy current peer and create a new room
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+
+            // Generate a new room ID for a fresh start
+            const newRoomId = generateRoomId();
+            setRoomIdInUrl(newRoomId);
+
+            // Reset UI
+            updateStatus('waiting for peer...', false);
+            elements.remoteContainer.classList.add('hidden');
+            elements.videoGrid.classList.remove('has-peer');
+            elements.localContainer.classList.remove('minimized');
+            elements.waitingOverlay.classList.remove('hidden');
+            elements.endCallBtn.classList.remove('visible');
+
+            // Initialize new peer with the new room ID
+            isHost = true;
+            initializePeer(newRoomId);
+
+            showToast('Ready for a new call');
+        }
+
+        // ============================================
+        // INACTIVITY HANDLING (Burner Feature)
+        // ============================================
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                if (document.hidden && currentCall) {
+                    console.log('Closing due to inactivity');
+                    currentCall.close();
+                    showToast('Call ended due to inactivity');
+                }
+            }, CONFIG.INACTIVITY_TIMEOUT);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                resetInactivityTimer();
+            } else {
+                clearTimeout(inactivityTimer);
+            }
+        });
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+
+        async function init() {
+            updateStatus('requesting camera...', false);
+
+            const hasMedia = await requestMediaAccess();
+            if (!hasMedia) return;
+
+            let roomId = getRoomIdFromUrl();
+
+            if (roomId) {
+                // Joining an existing room
+                isHost = false;
+                updateStatus('joining room...', false);
+
+                // Generate a unique ID for this peer
+                const myId = generateRoomId();
+                initializePeer(myId);
+
+                // Wait for peer to be ready, then connect
+                peer.on('open', () => {
+                    setTimeout(() => connectToPeer(roomId), 500);
+                });
+            } else {
+                // Creating a new room
+                isHost = true;
+                roomId = generateRoomId();
+                setRoomIdInUrl(roomId);
+                initializePeer(roomId);
+            }
+        }
+
+        // Share button handler
+        elements.shareBtn.addEventListener('click', async () => {
+            const shareUrl = `${window.location.origin}${window.location.pathname}#${peer?.id || ''}`;
+
+            try {
+                await copyToClipboard(shareUrl);
+                elements.shareBtn.classList.add('copied');
+                elements.shareBtn.querySelector('span').textContent = 'Copied!';
+                showToast('Link copied to clipboard');
+
+                setTimeout(() => {
+                    elements.shareBtn.classList.remove('copied');
+                    elements.shareBtn.querySelector('span').textContent = 'Copy Link';
+                }, 2000);
+            } catch (err) {
+                console.error('Copy failed:', err);
+            }
+        });
+
+        // End call button handler
+        elements.endCallBtn.addEventListener('click', endCall);
+
+        // Start the app
+        init();
+    </script>
+</body>
+
+</html>
