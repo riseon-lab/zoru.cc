@@ -171,8 +171,8 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.95) 90%);
-            backdrop-filter: blur(8px);
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.9) 75%, rgba(0, 0, 0, 0.95) 100%);
+            pointer-events: none;
             z-index: 10;
         }
 
@@ -1039,6 +1039,29 @@
             elements.statusDot.classList.toggle('connected', connected);
         }
 
+        function resetShareUI() {
+            elements.shareCard.classList.remove('flipped');
+            elements.shareCard.classList.remove('hidden');
+            elements.joinInterstitial.classList.add('hidden');
+            elements.joinInput.value = '';
+        }
+
+        function cleanupCallState() {
+            if (currentCall) {
+                const callToClose = currentCall;
+                currentCall = null;
+                callToClose.close();
+            }
+
+            if (currentConn) {
+                const connToClose = currentConn;
+                currentConn = null;
+                connToClose.close();
+            }
+
+            elements.remoteVideo.srcObject = null;
+        }
+
         function scheduleJoinRetry(roomId) {
             clearTimeout(joinRetryTimer);
             joinRetryTimer = setTimeout(() => {
@@ -1167,11 +1190,18 @@
             currentConn = conn;
             conn.on('data', (data) => {
                 if (data && data.type === 'bye') {
-                    onPeerDisconnected();
+                    cleanupCallState();
+                    onPeerDisconnected({ showEndScreen: true });
                 }
             });
             conn.on('open', () => {
                 console.log('Data connection open');
+            });
+            conn.on('close', () => {
+                if (currentConn === conn) currentConn = null;
+            });
+            conn.on('error', () => {
+                if (currentConn === conn) currentConn = null;
             });
         }
 
@@ -1185,16 +1215,22 @@
 
             call.on('close', () => {
                 console.log('Call closed');
-                onPeerDisconnected();
+                if (currentCall !== call) return;
+                cleanupCallState();
+                onPeerDisconnected({ showEndScreen: true });
             });
 
             call.on('error', (err) => {
                 console.error('Call error:', err);
                 // "Room Full" often manifests as an immediate close or error on join
+                if (currentCall === call) {
+                    cleanupCallState();
+                }
                 if (!elements.videoGrid.classList.contains('has-peer')) {
                     showToast('Connection failed. Room might be full.');
+                    onPeerDisconnected({ showEndScreen: false });
                 } else {
-                    onPeerDisconnected();
+                    onPeerDisconnected({ showEndScreen: true });
                 }
             });
         }
@@ -1214,7 +1250,7 @@
             resetInactivityTimer();
         }
 
-        function onPeerDisconnected() {
+        function onPeerDisconnected({ showEndScreen = false } = {}) {
             updateStatus('peer disconnected', false);
             elements.remoteContainer.classList.add('hidden');
             elements.videoGrid.classList.remove('has-peer');
@@ -1225,10 +1261,11 @@
             // Hide Controls
             elements.controlsBar.classList.remove('visible');
 
-            elements.remoteVideo.srcObject = null;
-            currentCall = null;
-            currentConn = null;
+            cleanupCallState();
             showToast('Peer disconnected');
+            if (showEndScreen) {
+                showDonationOverlay('ended');
+            }
         }
 
         function endCall() {
@@ -1239,10 +1276,7 @@
                 }, 100);
             }
 
-            if (currentCall) {
-                currentCall.close();
-                currentCall = null;
-            }
+            cleanupCallState();
             clearTimeout(joinRetryTimer);
 
             // Destroy current peer
@@ -1257,6 +1291,7 @@
             elements.remoteContainer.classList.add('hidden');
             elements.videoGrid.classList.remove('has-peer');
             elements.localContainer.classList.remove('minimized');
+            elements.localContainer.classList.add('obscured');
             // Hide normal waiting overlay for now
             elements.waitingOverlay.classList.add('hidden');
 
@@ -1286,6 +1321,9 @@
             elements.endCallOverlay.classList.add('hidden');
             elements.waitingOverlay.classList.remove('hidden');
             elements.overlayActionBtn.onclick = null; // Clean up
+            resetShareUI();
+            elements.localContainer.classList.remove('minimized');
+            elements.localContainer.classList.add('obscured');
 
             // Actual Reset Logic
             const newRoomId = generateRoomId();
