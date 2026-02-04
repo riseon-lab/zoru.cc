@@ -205,7 +205,34 @@
             letter-spacing: 0.1em;
         }
 
+        /* Flip Card Container */
+        .share-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 420px;
+            height: 320px;
+            /* Fixed height to prevent layout jumps */
+            position: relative;
+        }
+
         .share-section {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 24px;
+        }
+
+        .share-section.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .share-card-front,
+        .share-card-back {
+            position: absolute;
+            inset: 0;
+            backface-visibility: hidden;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 24px;
@@ -213,19 +240,71 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 1.5rem;
-            max-width: 420px;
-            width: 100%;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(0px);
-            /* Opaque card */
-            transform: translateY(0);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .share-section:hover {
-            transform: translateY(-2px);
+        .share-card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Front specific */
+        .share-card-front:hover {
             border-color: rgba(124, 58, 237, 0.2);
+        }
+
+        /* Input specific */
+        .code-input {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.875rem 1rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1.25rem;
+            text-align: center;
+            letter-spacing: 0.1em;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+            text-transform: lowercase;
+        }
+
+        .code-input:focus {
+            border-color: var(--accent);
+        }
+
+        .join-btn {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        .join-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .text-link {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .text-link:hover {
+            color: var(--text-primary);
+            text-decoration: underline;
         }
 
         .link-display {
@@ -471,23 +550,34 @@
 
             <div class="waiting-overlay" id="waitingOverlay">
                 <p class="tagline">DIRECT. PRIVATE. TEMPORARY.</p>
-                <div class="share-section fade-in">
-                    <div class="link-display">
-                        <span class="room-code-label">Code:</span>
-                        <code id="shareCode">...</code>
+                <div class="share-container">
+                    <div class="share-section" id="shareCard">
+                        <!-- Front: Copy Link -->
+                        <div class="share-card-front">
+                            <p class="tagline" style="margin-bottom: 0;">DIRECT. PRIVATE. TEMPORARY.</p>
+                            <div class="link-display">
+                                <span class="room-code-label">Code:</span>
+                                <code id="shareCode">...</code>
+                            </div>
+                            <button class="share-btn" id="shareBtn">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                                    viewBox="0 0 24 24">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                                </svg>
+                                <span>Copy Link</span>
+                            </button>
+                            <a class="text-link" id="flipToJoin">Join with Code</a>
+                        </div>
+
+                        <!-- Back: Join Code -->
+                        <div class="share-card-back">
+                            <h3 class="error-title" style="font-size: 1rem; margin-bottom: 0;">Enter Room Code</h3>
+                            <input type="text" class="code-input" id="joinInput" placeholder="ex: 68k6yc" maxlength="6">
+                            <button class="join-btn" id="joinBtn">Join Room</button>
+                            <a class="text-link" id="flipToCreate">Cancel / Create New</a>
+                        </div>
                     </div>
-                    <button class="share-btn" id="shareBtn">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-                            viewBox="0 0 24 24">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-                        </svg>
-                        <span>Copy Link</span>
-                    </button>
-                    <p class="instructions">
-                        Share this link with someone to start a private video call.<br>
-                        No accounts. No data stored.
-                    </p>
                 </div>
             </div>
         </main>
@@ -550,7 +640,14 @@
             errorOverlay: document.getElementById('errorOverlay'),
             errorOverlay: document.getElementById('errorOverlay'),
             shareCode: document.getElementById('shareCode'),
+            errorOverlay: document.getElementById('errorOverlay'),
+            shareCard: document.getElementById('shareCard'),
+            shareCode: document.getElementById('shareCode'),
             shareBtn: document.getElementById('shareBtn'),
+            joinInput: document.getElementById('joinInput'),
+            joinBtn: document.getElementById('joinBtn'),
+            flipToJoin: document.getElementById('flipToJoin'),
+            flipToCreate: document.getElementById('flipToCreate'),
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
             roomIdDisplay: document.getElementById('roomIdDisplay'),
@@ -667,6 +764,14 @@
 
             peer.on('call', (call) => {
                 console.log('Incoming call');
+
+                // Room Full Logic: If we are already in a call, reject the new one
+                if (currentCall) {
+                    console.warn('Room is full. Rejecting incoming call.');
+                    call.close();
+                    return;
+                }
+
                 currentCall = call;
                 call.answer(localStream);
                 handleCall(call);
@@ -724,7 +829,12 @@
 
             call.on('error', (err) => {
                 console.error('Call error:', err);
-                onPeerDisconnected();
+                // "Room Full" often manifests as an immediate close or error on join
+                if (!elements.videoGrid.classList.contains('has-peer')) {
+                    showToast('Connection failed. Room might be full.');
+                } else {
+                    onPeerDisconnected();
+                }
             });
         }
 
@@ -877,6 +987,37 @@
 
         // End call button handler
         elements.endCallBtn.addEventListener('click', endCall);
+
+        // Flip Card Logic
+        elements.flipToJoin.addEventListener('click', () => {
+            elements.shareCard.classList.add('flipped');
+            setTimeout(() => elements.joinInput.focus(), 200);
+        });
+
+        elements.flipToCreate.addEventListener('click', () => {
+            elements.shareCard.classList.remove('flipped');
+        });
+
+        // Manual Join Logic
+        elements.joinBtn.addEventListener('click', () => {
+            const code = elements.joinInput.value.trim().toLowerCase();
+            if (code.length !== CONFIG.ROOM_ID_LENGTH) {
+                showToast('Invalid code length');
+                return;
+            }
+
+            // Switch to this room
+            if (currentCall) endCall(); // Should be rare in waiting state but good safety
+
+            // Re-init with new room ID logic
+            // We behave like we just opened the URL with this hash
+            window.location.hash = `#${code}`;
+            window.location.reload(); // Simplest way to ensure clean state for a new "Join" action
+        });
+
+        elements.joinInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') elements.joinBtn.click();
+        });
 
         // Start the app
         init();
