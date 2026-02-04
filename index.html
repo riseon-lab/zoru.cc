@@ -662,16 +662,92 @@
 
         .support-link {
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: white;
             text-decoration: none;
             margin-left: 1rem;
             cursor: pointer;
-            transition: color 0.2s;
+            transition: all 0.2s;
+            background: var(--accent);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px var(--accent-glow);
         }
 
         .support-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px var(--accent-glow);
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            z-index: 100;
+            display: none;
+            /* Hidden by default */
+            background: rgba(17, 17, 19, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 0.75rem;
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .controls-bar.visible {
+            display: flex;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 1.25rem;
+        }
+
+        .control-btn:hover {
+            background: var(--border);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.active {
+            background: var(--bg-elevated);
             color: var(--text-primary);
         }
+
+        .control-btn.off {
+            background: #dc2626;
+            color: white;
+        }
+
+        .control-btn.end-call {
+            background: #dc2626;
+            color: white;
+            width: auto;
+            border-radius: 50px;
+            padding: 0 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            gap: 0.5rem;
+        }
+
+        .control-btn.end-call:hover {
+            background: #b91c1c;
+        }
+
+        /* End Call Btn Styles Removed (replaced by control-btn.end-call) */
     </style>
 </head>
 
@@ -797,7 +873,19 @@
         </div>
     </div>
 
-    <button class="end-call-btn" id="endCallBtn">End Call</button>
+    <!-- Controls Bar -->
+    <div class="controls-bar" id="controlsBar">
+        <button class="control-btn" id="micBtn" title="Toggle Mic">
+            <!-- Icon handled by JS or simple text for now -->
+            🎙️
+        </button>
+        <button class="control-btn" id="videoBtn" title="Toggle Video">
+            📷
+        </button>
+        <button class="control-btn end-call" id="endCallBtn">
+            End Call
+        </button>
+    </div>
 
     <!-- PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -859,6 +947,10 @@
             btnBtc: document.getElementById('btnBtc'),
             closeBtc: document.getElementById('closeBtc'),
             copyBtc: document.getElementById('copyBtc'),
+            // Controls
+            controlsBar: document.getElementById('controlsBar'),
+            micBtn: document.getElementById('micBtn'),
+            videoBtn: document.getElementById('videoBtn'),
             statusText: document.getElementById('statusText') // Re-adding carefully
         };
 
@@ -1062,7 +1154,10 @@
             elements.videoGrid.classList.add('has-peer');
             elements.localContainer.classList.remove('obscured');
             elements.localContainer.classList.add('minimized');
-            elements.endCallBtn.classList.add('visible');
+
+            // Show Controls instead of just End Call
+            elements.controlsBar.classList.add('visible');
+
             clearTimeout(joinRetryTimer);
             resetInactivityTimer();
         }
@@ -1074,7 +1169,10 @@
             elements.localContainer.classList.remove('minimized');
             elements.localContainer.classList.add('obscured');
             elements.waitingOverlay.classList.remove('hidden');
-            elements.endCallBtn.classList.remove('visible');
+
+            // Hide Controls
+            elements.controlsBar.classList.remove('visible');
+
             elements.remoteVideo.srcObject = null;
             currentCall = null;
             showToast('Peer disconnected');
@@ -1101,7 +1199,9 @@
             elements.localContainer.classList.remove('minimized');
             // Hide normal waiting overlay for now
             elements.waitingOverlay.classList.add('hidden');
-            elements.endCallBtn.classList.remove('visible');
+
+            // Hide Controls
+            elements.controlsBar.classList.remove('visible');
 
             showToast('Call ended');
         }
@@ -1137,6 +1237,49 @@
             initializePeer(newRoomId);
 
             showToast('Ready for a new call');
+
+            // Reset Media Handling for new call
+            resetMediaControls();
+        }
+
+        function resetMediaControls() {
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => track.enabled = true);
+                localStream.getVideoTracks().forEach(track => track.enabled = true);
+            }
+            updateMediaUI();
+        }
+
+        function updateMediaUI() {
+            if (!localStream) return;
+            const audioEnabled = localStream.getAudioTracks()[0]?.enabled;
+            const videoEnabled = localStream.getVideoTracks()[0]?.enabled;
+
+            elements.micBtn.classList.toggle('off', !audioEnabled);
+            elements.micBtn.innerHTML = audioEnabled ? '🎙️' : '🔇';
+
+            elements.videoBtn.classList.toggle('off', !videoEnabled);
+            elements.videoBtn.innerHTML = videoEnabled ? '📷' : '⛔';
+        }
+
+        function toggleAudio() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                updateMediaUI();
+                showToast(audioTrack.enabled ? 'Mic On' : 'Mic Off', 1000);
+            }
+        }
+
+        function toggleVideo() {
+            if (!localStream) return;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                updateMediaUI();
+                showToast(videoTrack.enabled ? 'Camera On' : 'Camera Off', 1000);
+            }
         }
 
         // ============================================
@@ -1230,6 +1373,11 @@
 
         // End call button handler
         elements.endCallBtn.addEventListener('click', endCall);
+
+        // Media Controls
+        elements.micBtn.addEventListener('click', toggleAudio);
+        elements.videoBtn.addEventListener('click', toggleVideo);
+
         // Note: overlayActionBtn listener is set dynamically in showDonationOverlay
 
         // Bitcoin Modal Handlers
