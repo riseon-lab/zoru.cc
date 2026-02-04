@@ -776,7 +776,6 @@
         <main class="video-grid" id="videoGrid">
             <div class="video-container local obscured" id="localContainer">
                 <video id="localVideo" autoplay muted playsinline></video>
-                <span class="video-label">you</span>
             </div>
 
             <div class="video-container remote hidden" id="remoteContainer">
@@ -811,6 +810,19 @@
                             <input type="text" class="code-input" id="joinInput" placeholder="ex: 68k6yc" maxlength="6">
                             <button class="join-btn" id="joinBtn">Join Room</button>
                             <a class="text-link" id="flipToCreate">Cancel / Create New</a>
+
+                        </div>
+                    </div>
+
+                    <!-- Join Interstitial (for incoming links) -->
+                    <div class="share-section hidden" id="joinInterstitial" style="text-align: center;">
+                        <div class="share-card-front" style="height: auto; min-height: 250px;">
+                            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; font-weight: 600;">Ready to Join?</h2>
+                            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Join room <code
+                                    id="interstitialCode" style="color: var(--accent);">...</code></p>
+                            <button class="join-btn" id="confirmJoinBtn" style="font-size: 1rem; padding: 1rem 2rem;">
+                                Join Call
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -921,7 +933,9 @@
             ICE_SERVERS: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
             ]
         };
 
@@ -944,6 +958,11 @@
             joinBtn: document.getElementById('joinBtn'),
             flipToJoin: document.getElementById('flipToJoin'),
             flipToCreate: document.getElementById('flipToCreate'),
+            // Interstitial
+            joinInterstitial: document.getElementById('joinInterstitial'),
+            interstitialCode: document.getElementById('interstitialCode'),
+            confirmJoinBtn: document.getElementById('confirmJoinBtn'),
+            // Status
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
             roomIdDisplay: document.getElementById('roomIdDisplay'),
@@ -1134,7 +1153,7 @@
 
             updateStatus('connecting...', false);
 
-            const conn = peer.connect(peerId);
+            const conn = peer.connect(peerId, { reliable: true });
             configureDataConnection(conn);
 
             const call = peer.call(peerId, localStream);
@@ -1359,19 +1378,30 @@
             let roomId = getRoomIdFromUrl();
 
             if (roomId) {
-                // Joining an existing room
+                // Joining an existing room - Show Interstitial to fix Autoplay
                 isHost = false;
-                activeRoomId = roomId;
-                updateStatus('joining room...', false);
+                elements.shareCard.classList.add('hidden');
+                elements.joinInterstitial.classList.remove('hidden');
+                elements.interstitialCode.textContent = roomId;
 
-                // Generate a unique ID for this peer
-                const myId = generateRoomId();
-                initializePeer(myId);
+                elements.confirmJoinBtn.onclick = () => {
+                    elements.joinInterstitial.classList.add('hidden');
+                    // Show waiting/sharing card again or just status? 
+                    // Better to show simplified status or nothing.
+                    // Actually, we want to show connection status.
 
-                // Wait for peer to be ready, then connect
-                peer.on('open', () => {
-                    setTimeout(() => connectToPeer(roomId), 500);
-                });
+                    activeRoomId = roomId;
+                    updateStatus('joining room...', false);
+
+                    // Generate a unique ID for this peer
+                    const myId = generateRoomId();
+                    initializePeer(myId);
+
+                    // Wait for peer to be ready, then connect
+                    peer.on('open', () => {
+                        setTimeout(() => connectToPeer(roomId), 500);
+                    });
+                };
             } else {
                 // Creating a new room
                 isHost = true;
