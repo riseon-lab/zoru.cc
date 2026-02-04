@@ -44,6 +44,7 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            height: 100dvh;
             width: 100vw;
         }
 
@@ -152,6 +153,17 @@
             z-index: 50;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             border: 2px solid var(--border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (max-width: 768px) {
+            .video-container.local.minimized {
+                bottom: auto;
+                top: 1rem;
+                right: 1rem;
+                width: 120px;
+                height: 80px;
+            }
         }
 
         /* Obscured/Vignetted Local Video State */
@@ -968,6 +980,7 @@
         let peer = null;
         let localStream = null;
         let currentCall = null;
+        let currentConn = null;
         let inactivityTimer = null;
         let isHost = false;
         let activeRoomId = null;
@@ -1071,6 +1084,10 @@
                 // ID confirmed by server (usually same as generated)
             });
 
+            peer.on('connection', (conn) => {
+                configureDataConnection(conn);
+            });
+
             peer.on('call', (call) => {
                 console.log('Incoming call');
 
@@ -1117,6 +1134,9 @@
 
             updateStatus('connecting...', false);
 
+            const conn = peer.connect(peerId);
+            configureDataConnection(conn);
+
             const call = peer.call(peerId, localStream);
             if (call) {
                 currentCall = call;
@@ -1124,10 +1144,23 @@
             }
         }
 
+        function configureDataConnection(conn) {
+            currentConn = conn;
+            conn.on('data', (data) => {
+                if (data && data.type === 'bye') {
+                    onPeerDisconnected();
+                }
+            });
+            conn.on('open', () => {
+                console.log('Data connection open');
+            });
+        }
+
         function handleCall(call) {
             call.on('stream', (remoteStream) => {
                 console.log('Received remote stream');
                 elements.remoteVideo.srcObject = remoteStream;
+                elements.remoteVideo.play().catch(e => console.error('Remote video play error', e));
                 onPeerConnected();
             });
 
@@ -1175,10 +1208,18 @@
 
             elements.remoteVideo.srcObject = null;
             currentCall = null;
+            currentConn = null;
             showToast('Peer disconnected');
         }
 
         function endCall() {
+            if (currentConn && currentConn.open) {
+                currentConn.send({ type: 'bye' });
+                setTimeout(() => {
+                    if (currentConn) currentConn.close();
+                }, 100);
+            }
+
             if (currentCall) {
                 currentCall.close();
                 currentCall = null;
@@ -1434,6 +1475,10 @@
 
         // Start the app
         init();
+
+        window.addEventListener('beforeunload', () => {
+            endCall();
+        });
     </script>
 </body>
 
