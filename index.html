@@ -749,7 +749,7 @@
     <div class="toast" id="toast"></div>
 
     <div class="end-call-overlay hidden" id="endCallOverlay">
-        <h2 class="error-title">Call Ended</h2>
+        <h2 class="error-title" id="donationTitle">Call Ended</h2>
         <p class="tagline">ZORU IS FREE. SERVERLESS. PRIVATE.</p>
 
         <p class="error-message" style="margin-bottom: 2rem;">
@@ -765,7 +765,7 @@
             </button>
         </div>
 
-        <button class="join-btn" id="startNewCallBtn" style="margin-top: 3rem; max-width: 200px;">
+        <button class="join-btn" id="overlayActionBtn" style="margin-top: 3rem; max-width: 200px;">
             Start New Call
         </button>
     </div>
@@ -853,8 +853,9 @@
             endCallBtn: document.getElementById('endCallBtn'),
             // Donations
             endCallOverlay: document.getElementById('endCallOverlay'),
+            donationTitle: document.getElementById('donationTitle'),
             btcModal: document.getElementById('btcModal'),
-            startNewCallBtn: document.getElementById('startNewCallBtn'),
+            overlayActionBtn: document.getElementById('overlayActionBtn'),
             btnBtc: document.getElementById('btnBtc'),
             closeBtc: document.getElementById('closeBtc'),
             copyBtc: document.getElementById('copyBtc'),
@@ -867,7 +868,7 @@
         supportLink.className = 'support-link';
         supportLink.textContent = '[ Support ]';
         supportLink.addEventListener('click', () => {
-            elements.endCallOverlay.classList.remove('hidden');
+            showDonationOverlay('general');
         });
         headerStatus.appendChild(supportLink);
 
@@ -1086,9 +1087,6 @@
             }
             clearTimeout(joinRetryTimer);
 
-            // Destroy current peer and create a new room
-            clearTimeout(joinRetryTimer);
-
             // Destroy current peer
             if (peer) {
                 peer.destroy();
@@ -1096,7 +1094,8 @@
             }
 
             // Show End Call Overlay instead of immediate reset
-            elements.endCallOverlay.classList.remove('hidden');
+            showDonationOverlay('ended');
+
             elements.remoteContainer.classList.add('hidden');
             elements.videoGrid.classList.remove('has-peer');
             elements.localContainer.classList.remove('minimized');
@@ -1107,10 +1106,26 @@
             showToast('Call ended');
         }
 
+        function showDonationOverlay(mode) {
+            elements.endCallOverlay.classList.remove('hidden');
+            if (mode === 'ended') {
+                elements.donationTitle.textContent = 'Call Ended';
+                elements.overlayActionBtn.textContent = 'Start New Call';
+                elements.overlayActionBtn.onclick = startNewCall;
+            } else {
+                elements.donationTitle.textContent = 'Support Zoru';
+                elements.overlayActionBtn.textContent = 'Close';
+                elements.overlayActionBtn.onclick = () => {
+                    elements.endCallOverlay.classList.add('hidden');
+                };
+            }
+        }
+
         function startNewCall() {
             // Hide End Screen
             elements.endCallOverlay.classList.add('hidden');
             elements.waitingOverlay.classList.remove('hidden');
+            elements.overlayActionBtn.onclick = null; // Clean up
 
             // Actual Reset Logic
             const newRoomId = generateRoomId();
@@ -1215,7 +1230,7 @@
 
         // End call button handler
         elements.endCallBtn.addEventListener('click', endCall);
-        elements.startNewCallBtn.addEventListener('click', startNewCall);
+        // Note: overlayActionBtn listener is set dynamically in showDonationOverlay
 
         // Bitcoin Modal Handlers
         elements.btnBtc.addEventListener('click', () => {
