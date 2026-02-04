@@ -524,6 +524,154 @@
         .end-call-btn.visible {
             display: block;
         }
+
+        /* End Call Overlay (Donation) */
+        .end-call-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-primary);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            text-align: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .end-call-overlay.hidden {
+            display: none;
+        }
+
+        .donation-options {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-coffee {
+            background: #FFDD00;
+            color: #000;
+            padding: 0.875rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-btc {
+            background: #f7931a;
+            color: #fff;
+            padding: 0.875rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-coffee:hover,
+        .btn-btc:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Bitcoin Modal */
+        .btc-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .btc-modal.hidden {
+            display: none;
+        }
+
+        .btc-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        .btc-card img {
+            max-width: 100%;
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        .btc-address-box {
+            background: var(--bg-elevated);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            font-size: 0.7rem;
+            word-break: break-all;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .copy-tiny {
+            background: var(--border);
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .close-modal {
+            margin-top: 1.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .close-modal:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .support-link {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            margin-left: 1rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .support-link:hover {
+            color: var(--text-primary);
+        }
     </style>
 </head>
 
@@ -549,7 +697,6 @@
             </div>
 
             <div class="waiting-overlay" id="waitingOverlay">
-                <p class="tagline">DIRECT. PRIVATE. TEMPORARY.</p>
                 <div class="share-container">
                     <div class="share-section" id="shareCard">
                         <!-- Front: Copy Link -->
@@ -600,6 +747,55 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <div class="end-call-overlay hidden" id="endCallOverlay">
+        <h2 class="error-title">Call Ended</h2>
+        <p class="tagline">ZORU IS FREE. SERVERLESS. PRIVATE.</p>
+
+        <p class="error-message" style="margin-bottom: 2rem;">
+            If you found this useful, consider supporting the project.
+        </p>
+
+        <div class="donation-options">
+            <a href="https://buymeacoffee.com" target="_blank" class="btn-coffee">
+                <span>☕ Buy Me a Coffee</span>
+            </a>
+            <button class="btn-btc" id="btnBtc">
+                <span>⚡ Donate Bitcoin</span>
+            </button>
+        </div>
+
+        <button class="join-btn" id="startNewCallBtn" style="margin-top: 3rem; max-width: 200px;">
+            Start New Call
+        </button>
+    </div>
+
+    <!-- Bitcoin Modal -->
+    <div class="btc-modal hidden" id="btcModal">
+        <div class="btc-card">
+            <h3>Support Zoru</h3>
+            <!-- Assuming image exists or placeholder -->
+            <div class="qr-placeholder">
+                <img src="assets/zoru-bolt12.png" alt="BOLT 12 Offer"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                <div style="display:none; padding: 2rem; border: 1px dashed var(--border);">QR Code Placeholder</div>
+            </div>
+
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 1rem 0;">
+                Scan with a modern Lightning wallet (Phoenix, Zeus, etc.)
+            </p>
+
+            <details>
+                <summary style="cursor:pointer; font-size: 0.75rem; color: var(--text-muted);">Using an older wallet?
+                </summary>
+                <div class="btc-address-box">
+                    <code>bitcoin:bc1pu5je4g49dxc57qnjdqjx7l6g5gs7wa764wzhrncnx0yruqk9n92sg3ftpx</code>
+                    <button class="copy-tiny" id="copyBtc">Copy</button>
+                </div>
+            </details>
+            <button class="close-modal" id="closeBtc">Close</button>
+        </div>
+    </div>
 
     <button class="end-call-btn" id="endCallBtn">End Call</button>
 
@@ -652,8 +848,28 @@
             statusText: document.getElementById('statusText'),
             roomIdDisplay: document.getElementById('roomIdDisplay'),
             toast: document.getElementById('toast'),
-            endCallBtn: document.getElementById('endCallBtn')
+            roomIdDisplay: document.getElementById('roomIdDisplay'),
+            toast: document.getElementById('toast'),
+            endCallBtn: document.getElementById('endCallBtn'),
+            // Donations
+            endCallOverlay: document.getElementById('endCallOverlay'),
+            btcModal: document.getElementById('btcModal'),
+            startNewCallBtn: document.getElementById('startNewCallBtn'),
+            btnBtc: document.getElementById('btnBtc'),
+            closeBtc: document.getElementById('closeBtc'),
+            copyBtc: document.getElementById('copyBtc'),
+            statusText: document.getElementById('statusText') // Re-adding carefully
         };
+
+        // Add Support link to header dynamically
+        const headerStatus = document.querySelector('.status');
+        const supportLink = document.createElement('a');
+        supportLink.className = 'support-link';
+        supportLink.textContent = '[ Support ]';
+        supportLink.addEventListener('click', () => {
+            elements.endCallOverlay.classList.remove('hidden');
+        });
+        headerStatus.appendChild(supportLink);
 
         // State
         let peer = null;
@@ -871,25 +1087,37 @@
             clearTimeout(joinRetryTimer);
 
             // Destroy current peer and create a new room
+            clearTimeout(joinRetryTimer);
+
+            // Destroy current peer
             if (peer) {
                 peer.destroy();
                 peer = null;
             }
 
-            // Generate a new room ID for a fresh start
+            // Show End Call Overlay instead of immediate reset
+            elements.endCallOverlay.classList.remove('hidden');
+            elements.remoteContainer.classList.add('hidden');
+            elements.videoGrid.classList.remove('has-peer');
+            elements.localContainer.classList.remove('minimized');
+            // Hide normal waiting overlay for now
+            elements.waitingOverlay.classList.add('hidden');
+            elements.endCallBtn.classList.remove('visible');
+
+            showToast('Call ended');
+        }
+
+        function startNewCall() {
+            // Hide End Screen
+            elements.endCallOverlay.classList.add('hidden');
+            elements.waitingOverlay.classList.remove('hidden');
+
+            // Actual Reset Logic
             const newRoomId = generateRoomId();
             activeRoomId = newRoomId;
             setRoomIdInUrl(newRoomId);
 
-            // Reset UI
             updateStatus('waiting for peer...', false);
-            elements.remoteContainer.classList.add('hidden');
-            elements.videoGrid.classList.remove('has-peer');
-            elements.localContainer.classList.remove('minimized');
-            elements.waitingOverlay.classList.remove('hidden');
-            elements.endCallBtn.classList.remove('visible');
-
-            // Initialize new peer with the new room ID
             isHost = true;
             initializePeer(newRoomId);
 
@@ -987,6 +1215,28 @@
 
         // End call button handler
         elements.endCallBtn.addEventListener('click', endCall);
+        elements.startNewCallBtn.addEventListener('click', startNewCall);
+
+        // Bitcoin Modal Handlers
+        elements.btnBtc.addEventListener('click', () => {
+            elements.btcModal.classList.remove('hidden');
+        });
+
+        elements.closeBtc.addEventListener('click', () => {
+            elements.btcModal.classList.add('hidden');
+        });
+
+        elements.btcModal.addEventListener('click', (e) => {
+            if (e.target === elements.btcModal) {
+                elements.btcModal.classList.add('hidden');
+            }
+        });
+
+        elements.copyBtc.addEventListener('click', () => {
+            // The long BTC address
+            copyToClipboard('bitcoin:bc1pu5je4g49dxc57qnjdqjx7l6g5gs7wa764wzhrncnx0yruqk9n92sg3ftpx');
+            showToast('BTC Address Copied');
+        });
 
         // Flip Card Logic
         elements.flipToJoin.addEventListener('click', () => {
