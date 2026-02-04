@@ -109,6 +109,7 @@
             flex-direction: column;
             background: var(--bg-primary);
             position: relative;
+            min-height: 0;
         }
 
         .video-grid.has-peer {
@@ -153,6 +154,16 @@
             border: 2px solid var(--border);
         }
 
+        /* Obscured/Vignetted Local Video State */
+        .video-container.local.obscured::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.95) 90%);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
         .video-label {
             position: absolute;
             bottom: 0.75rem;
@@ -174,13 +185,16 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.8));
             z-index: 20;
             padding: 2rem;
             text-align: center;
         }
 
         .waiting-overlay.hidden {
+            display: none;
+        }
+
+        .hidden {
             display: none;
         }
 
@@ -192,33 +206,55 @@
         }
 
         .share-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 1rem;
-            max-width: 400px;
+            gap: 1.5rem;
+            max-width: 420px;
             width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(0px);
+            /* Opaque card */
+            transform: translateY(0);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .share-section:hover {
+            transform: translateY(-2px);
+            border-color: rgba(124, 58, 237, 0.2);
         }
 
         .link-display {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
             background: var(--bg-elevated);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
             width: 100%;
-            font-size: 0.875rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .room-code-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-right: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            align-self: center;
         }
 
         .link-display code {
-            flex: 1;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
             color: var(--text-primary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
+
+        /* Removed original link-display code styles in favor of new larger one */
 
         .share-btn {
             background: var(--accent);
@@ -251,11 +287,29 @@
             box-shadow: 0 4px 24px rgba(16, 185, 129, 0.3);
         }
 
+        .share-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .instructions {
             font-size: 0.75rem;
             color: var(--text-muted);
             margin-top: 1rem;
             line-height: 1.6;
+        }
+
+        @media (max-height: 640px) {
+            .waiting-overlay {
+                justify-content: flex-start;
+                padding-top: 1.5rem;
+            }
+
+            .tagline {
+                margin-bottom: 1rem;
+            }
         }
 
         /* Permissions Error */
@@ -405,7 +459,7 @@
         </header>
 
         <main class="video-grid" id="videoGrid">
-            <div class="video-container local" id="localContainer">
+            <div class="video-container local obscured" id="localContainer">
                 <video id="localVideo" autoplay muted playsinline></video>
                 <span class="video-label">you</span>
             </div>
@@ -419,7 +473,8 @@
                 <p class="tagline">DIRECT. PRIVATE. TEMPORARY.</p>
                 <div class="share-section fade-in">
                     <div class="link-display">
-                        <code id="shareLink"></code>
+                        <span class="room-code-label">Code:</span>
+                        <code id="shareCode">...</code>
                     </div>
                     <button class="share-btn" id="shareBtn">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
@@ -493,7 +548,8 @@
             videoGrid: document.getElementById('videoGrid'),
             waitingOverlay: document.getElementById('waitingOverlay'),
             errorOverlay: document.getElementById('errorOverlay'),
-            shareLink: document.getElementById('shareLink'),
+            errorOverlay: document.getElementById('errorOverlay'),
+            shareCode: document.getElementById('shareCode'),
             shareBtn: document.getElementById('shareBtn'),
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
@@ -508,6 +564,8 @@
         let currentCall = null;
         let inactivityTimer = null;
         let isHost = false;
+        let activeRoomId = null;
+        let joinRetryTimer = null;
 
         // ============================================
         // UTILITIES
@@ -541,6 +599,15 @@
         function updateStatus(text, connected = false) {
             elements.statusText.textContent = text;
             elements.statusDot.classList.toggle('connected', connected);
+        }
+
+        function scheduleJoinRetry(roomId) {
+            clearTimeout(joinRetryTimer);
+            joinRetryTimer = setTimeout(() => {
+                if (!currentCall && peer?.open && !isHost) {
+                    connectToPeer(roomId);
+                }
+            }, 2000);
         }
 
         function copyToClipboard(text) {
@@ -578,20 +645,24 @@
         // ============================================
 
         function initializePeer(roomId) {
+            // Optimistic UI: Link is ready immediately
+            const displayRoomId = activeRoomId || roomId;
+            elements.roomIdDisplay.textContent = displayRoomId;
+            elements.shareCode.textContent = displayRoomId;
+            elements.shareBtn.disabled = false;
+
+            // Only show waiting status if we are hosting and created the link
+            if (isHost) {
+                updateStatus('ready to connect', false);
+            }
+
             peer = new Peer(roomId, {
                 config: { iceServers: CONFIG.ICE_SERVERS }
             });
 
             peer.on('open', (id) => {
                 console.log('Peer connected with ID:', id);
-                elements.roomIdDisplay.textContent = id;
-
-                const shareUrl = `${window.location.origin}${window.location.pathname}#${id}`;
-                elements.shareLink.textContent = shareUrl;
-
-                if (isHost) {
-                    updateStatus('waiting for peer...', false);
-                }
+                // ID confirmed by server (usually same as generated)
             });
 
             peer.on('call', (call) => {
@@ -604,11 +675,21 @@
             peer.on('error', (err) => {
                 console.error('Peer error:', err);
                 if (err.type === 'unavailable-id') {
-                    // Room ID taken, try connecting as joiner
-                    connectToPeer(roomId);
+                    // Room ID taken, switch to joiner flow
+                    if (peer) {
+                        peer.destroy();
+                        peer = null;
+                    }
+                    isHost = false;
+                    activeRoomId = roomId;
+                    const myId = generateRoomId();
+                    initializePeer(myId);
+                    peer.on('open', () => {
+                        setTimeout(() => connectToPeer(roomId), 500);
+                    });
                 } else if (err.type === 'peer-unavailable') {
-                    updateStatus('peer not found', false);
-                    showToast('Could not connect to peer');
+                    updateStatus('waiting for peer...', false);
+                    scheduleJoinRetry(activeRoomId || roomId);
                 }
             });
 
@@ -652,8 +733,10 @@
             elements.waitingOverlay.classList.add('hidden');
             elements.remoteContainer.classList.remove('hidden');
             elements.videoGrid.classList.add('has-peer');
+            elements.localContainer.classList.remove('obscured');
             elements.localContainer.classList.add('minimized');
             elements.endCallBtn.classList.add('visible');
+            clearTimeout(joinRetryTimer);
             resetInactivityTimer();
         }
 
@@ -662,8 +745,11 @@
             elements.remoteContainer.classList.add('hidden');
             elements.videoGrid.classList.remove('has-peer');
             elements.localContainer.classList.remove('minimized');
+            elements.localContainer.classList.add('obscured');
             elements.waitingOverlay.classList.remove('hidden');
             elements.endCallBtn.classList.remove('visible');
+            elements.remoteVideo.srcObject = null;
+            currentCall = null;
             showToast('Peer disconnected');
         }
 
@@ -672,6 +758,7 @@
                 currentCall.close();
                 currentCall = null;
             }
+            clearTimeout(joinRetryTimer);
 
             // Destroy current peer and create a new room
             if (peer) {
@@ -681,6 +768,7 @@
 
             // Generate a new room ID for a fresh start
             const newRoomId = generateRoomId();
+            activeRoomId = newRoomId;
             setRoomIdInUrl(newRoomId);
 
             // Reset UI
@@ -736,6 +824,7 @@
             if (roomId) {
                 // Joining an existing room
                 isHost = false;
+                activeRoomId = roomId;
                 updateStatus('joining room...', false);
 
                 // Generate a unique ID for this peer
@@ -750,6 +839,7 @@
                 // Creating a new room
                 isHost = true;
                 roomId = generateRoomId();
+                activeRoomId = roomId;
                 setRoomIdInUrl(roomId);
                 initializePeer(roomId);
             }
@@ -757,12 +847,23 @@
 
         // Share button handler
         elements.shareBtn.addEventListener('click', async () => {
-            const shareUrl = `${window.location.origin}${window.location.pathname}#${peer?.id || ''}`;
+            const code = activeRoomId || peer?.id;
+            if (!code) {
+                showToast('Link not ready yet');
+                return;
+            }
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}#${code}`;
 
             try {
                 await copyToClipboard(shareUrl);
                 elements.shareBtn.classList.add('copied');
                 elements.shareBtn.querySelector('span').textContent = 'Copied!';
+
+                if (isHost) {
+                    updateStatus('waiting for peer...', false);
+                }
+
                 showToast('Link copied to clipboard');
 
                 setTimeout(() => {
